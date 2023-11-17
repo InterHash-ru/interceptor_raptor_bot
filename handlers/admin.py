@@ -217,7 +217,7 @@ async def about_token(call: types.CallbackQuery, callback_data: dict, db, dp, us
 			"📲 Активирован: ДА" if token_users else "📲 Активирован: НЕТ",
 			"",
 			"📆 Дата создания: " + hitalic(str(token_info['create_time'])),
-			"⏳ Время жизни: " + str(0) + ' дней.',
+			"⏳ Время жизни: " + str(30) + ' дней.',
 			"",
 			])
 		await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)

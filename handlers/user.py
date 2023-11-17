@@ -82,6 +82,7 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 	if user_info['token_id']:
 		conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
 		if conf:
+
 			conf['tracked_groups'] = ast.literal_eval(conf['tracked_groups'])
 			conf['chats_for_transfer'] = ast.literal_eval(conf['chats_for_transfer'])
 			conf['key_word'] = ast.literal_eval(conf['key_word'])
@@ -94,14 +95,15 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 				"📥 Куда будут приходить:",
 				" ".join(hcode(str(chatID)) for chatID in conf['chats_for_transfer']),
 				"",
-				"🔎 Список ключевых слов - " + hcode(str(len("".join(conf['key_word'])))) + hitalic(' слов'),
-				"🛑 Список ключ.стоп-слов - " + hcode(str(len("".join(conf['keyStop_word'])))) + hitalic(' слов'),
+				"🔎 Список ключевых слов - " + hcode("".join(str(len(conf['key_word'])))) + hitalic(' слов'),
+				"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(conf['keyStop_word'])))) + hitalic(' слов'),
 				"",
 				"🤖 Сессия Клиента Телеграм - " + hcode(str(conf['session_file'])),
 				"",
 				"🆔 API_ID: " + hcode(str(conf['api_id'])),
 				"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
 					])
+
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'], ['🎛 Настройки']], user_info['is_admin']))
 	else:
 		text = "\n".join([
@@ -309,7 +311,7 @@ async def run_intecepter_bot(message: types.Message, db, dp, user_info, settings
 			hbold("✅ Бот в реальном времени отслеживает чаты"),
 			])
 
-		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🛑 Завершить работу']], user_info['is_admin']))
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text) #, reply_markup = keyboard_gen([['🛑 Завершить работу']], user_info['is_admin']))
 		await StatesRun.active.set()
 		await register_user_telethon(client, db, message, user_info)  # RUN BOT
 	except Exception as error:
@@ -696,8 +698,8 @@ async def get_session(message: types.Message, db, dp, user_info, telegram, setti
 				" ".join(hcode(str(chatID)) for chatID in array['chat_id']),
 				" ".join(hitalic(str(item)) for item in array['chat_id_obj']),
 				"",
-				"🔎 Список ключевых слов - " + hcode(str(len("".join(array['key_word'])))) + hitalic(' слов'),
-				"🛑 Список ключ.стоп-слов - " + hcode(str(len("".join(array['stop_word'])))) + hitalic(' слов'),
+				"🔎 Список ключевых слов - " + hcode("".join(str(len(array['key_word'])))) + hitalic(' слов'),
+				"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(array['stop_word'])))) + hitalic(' слов'),
 				"",
 				"🤖 Сессия Клиента Телеграм - " + hcode(str(message.document.file_name)),
 				"",
