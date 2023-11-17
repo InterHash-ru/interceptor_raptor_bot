@@ -77,9 +77,28 @@ class User:
 
 	# TABLE 'bot_settings' INSERT, SELECT, DELETE
 	async def add_new_settings(self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash):
-		sql = "INSERT INTO bot_settings (self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+		sql = "INSERT INTO bot_settings (chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
 		return await self.execute(sql, (chat_id, token, str(tracked_groups), str(chats_for_transfer), str(key_word), str(keyStop_word), session_file, api_id, api_hash), execute = True)
 
+	async def get_settings_byUser(self, chat_id):
+		sql = "SELECT * FROM bot_settings WHERE chat_id = %s"
+		return await self.execute(sql, (chat_id), fetchone = True)
+
+	async def update_tracked_groups(self, chat_id, value):
+		sql = "UPDATE bot_settings SET tracked_groups = %s WHERE chat_id = %s"
+		return await self.execute(sql, (str(value), chat_id), execute = True)
+
+	async def update_forTransfer(self, chat_id, value):
+		sql = "UPDATE bot_settings SET chats_for_transfer = %s WHERE chat_id = %s"
+		return await self.execute(sql, (value, chat_id), execute = True)
+
+	async def update_keyWord(self, chat_id, value):
+		sql = "UPDATE bot_settings SET key_word = %s WHERE chat_id = %s"
+		return await self.execute(sql, (value, chat_id), execute = True)
+
+	async def update_keyStopWord(self, chat_id, value):
+		sql = "UPDATE bot_settings SET keyStop_word = %s WHERE chat_id = %s"
+		return await self.execute(sql, (value, chat_id), execute = True)
 
 	# ADMIN 'statistics'
 	async def get_stats_users(self):

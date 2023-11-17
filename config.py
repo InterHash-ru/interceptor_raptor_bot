@@ -8,15 +8,15 @@ TELEGRAM = {
 }
 
 MYSQL_INFO = {
-	"host"				: "51.195.43.149",
-	"user"				: "vlad",
-	"password"			: "1425pmrmsw",
-	"db"				: "vlad_interceptor",
+	"host"				: "localhost",
+	"user"				: "admin",
+	"password"			: "gucciv2bot",
+	"db"				: "database_inteceptor",
 	"port"				: 3306,
 }
 
 SETTINGS = {
-	"debug_mode"		: True,
+	"debug_mode"		: False,
 	"logs_path"			: "data/logs/errors.log",
 	"session_path"		: "data/session/",
 	"rights"			: {1: "Менеджер", 2: "Администратор"},

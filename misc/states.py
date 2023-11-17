@@ -11,8 +11,22 @@ class StatesActivate(StatesGroup):
 	get_api_hash = State()
 	# authorized
 	get_session = State()
-	login = State()
+	save_settings = State()
 	sign_in = State()
+
+class StatesEditValue(StatesGroup):
+	get_trackedGroup = State()
+	get_forTransfer = State()
+	get_keyWord = State()
+	get_keyStopWord = State()
+
+
+
+class StatesRun(StatesGroup):
+	active = State()
+
+
+
 
 class StatesBroadcast(StatesGroup):
 	action = State()
