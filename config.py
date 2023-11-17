@@ -21,7 +21,7 @@ TELEGRAM = {
 }
 
 MYSQL_INFO = {
-	"host"				: "80.89.239.38",
+	"host"				: "localhost",
 	"user"				: "admin",
 	"password"			: "gucciv2bot",
 	"db"				: "database_inteceptor",
