@@ -19,6 +19,10 @@ class User:
 		sql = "UPDATE users SET kicked = %s WHERE chat_id = %s"
 		return await self.execute(sql, (status, chat_id), execute = True)
 
+	async def update_running_param(self, chat_id, active):
+		sql = "UPDATE users SET active = %s WHERE chat_id = %s"
+		return await self.execute(sql, (active, chat_id), execute = True)
+
 	async def update_referrers_user(self, chat_id, count):
 		sql = "UPDATE users SET referrers = %s WHERE chat_id = %s"
 		return await self.execute(sql, (count, chat_id), execute = True)
@@ -42,9 +46,9 @@ class User:
 
 
 	# TABLE 'access' INSERT, SELECT, DELETE
-	async def add_new_token(self, token):
-		sql = "INSERT INTO access (token) VALUES (%s)"
-		return await self.execute(sql, (token), execute = True)
+	async def add_new_token(self, token, time_die):
+		sql = "INSERT INTO access (token, time_death) VALUES (%s, %s)"
+		return await self.execute(sql, (token, time_die), execute = True)
 
 	async def get_all_tokens(self):
 		sql = "SELECT * FROM access"
@@ -54,13 +58,17 @@ class User:
 		sql = "SELECT * FROM access WHERE id = %s"
 		return await self.execute(sql, (id), fetchone = True)
 	
+	async def update_time_live_token(self, id, datetime):
+		sql = "UPDATE access SET time_death = %s WHERE id = %s"
+		return await self.execute(sql, (datetime, id), execute = True)
+
 	async def get_idToken(self, token):
 		sql = "SELECT * FROM access WHERE token = %s"
 		return await self.execute(sql, (token), fetchone = True)
 
 	async def get_tokenUsers(self, id):
 		sql = "SELECT * FROM users WHERE token_id = %s"
-		return await self.execute(sql, (id), fetch = True)
+		return await self.execute(sql, (id), fetchone = True)
 
 	async def delete_token(self, id):
 		sql = "DELETE FROM access WHERE id = %s"
@@ -78,7 +86,12 @@ class User:
 	# TABLE 'bot_settings' INSERT, SELECT, DELETE
 	async def add_new_settings(self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash):
 		sql = "INSERT INTO bot_settings (chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+		print(chat_id)
 		return await self.execute(sql, (chat_id, token, str(tracked_groups), str(chats_for_transfer), str(key_word), str(keyStop_word), session_file, api_id, api_hash), execute = True)
+
+	async def delete_settings(self, token):
+		sql = "DELETE FROM bot_settings WHERE token = %s"
+		return await self.execute(sql, (token), execute = True)
 
 	async def get_settings_byUser(self, chat_id):
 		sql = "SELECT * FROM bot_settings WHERE chat_id = %s"
@@ -109,3 +122,5 @@ class User:
 		sql = "SELECT COUNT(*) as count FROM {}{}".format(table, (" WHERE " if len(kwargs) else ""))
 		sql += " AND ".join([f"{key} {separator} {value}" for key, value in kwargs.items()])
 		return await self.execute(sql, fetchrow = True)
+
+# dev t.me/cayse

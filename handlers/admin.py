@@ -20,7 +20,7 @@ from aiogram.utils.markdown import hbold, hcode, hitalic, hunderline, hstrikethr
 # FILES <
 from misc.filters import IsPrivate, IsAdmin
 from misc.help import keyboard_gen, chunks_generators, format_number
-from misc.callback_data import show_callback, target_callback, token_callback, pagination_callback, tokenUsers_callback, aboutUser_callback
+from misc.callback_data import show_callback, target_callback, token_callback, pagination_callback, tokenUsers_callback, aboutUser_callback, period_callback
 from misc.states import StatesBroadcast
 # FILES >
 
@@ -202,12 +202,10 @@ async def about_token(call: types.CallbackQuery, callback_data: dict, db, dp, us
 		
 		keyboard = types.InlineKeyboardMarkup()
 		keyboard.add(types.InlineKeyboardButton("↩️ Назад", callback_data = token_callback.new(action = "show", id = 'None')))
+		keyboard.add(types.InlineKeyboardButton("⚙️ Продлить время", callback_data = token_callback.new(action = "edit_time", id = callback_data['id'])))
 		if token_users:
 			keyboard.add(types.InlineKeyboardButton("👨‍💻 Пользователи", callback_data = tokenUsers_callback.new(id = callback_data['id'])))
 		keyboard.insert(types.InlineKeyboardButton("🗑 Удалить", callback_data = token_callback.new(action = "attention", id = callback_data['id'])))
-
-		now = datetime.now()
-		# time_live = now - token_info['create_time'] // СЧИТАТЬ ВРЕМЯ ЖИЗНИ ТОКЕНА ОТ ВРЕМЕНИ АКТИВАЦИЮЮ ПОЛЬЗОВАТЕЛЕМ
 
 		text = '\n'.join([
 			hbold("❔ Информация об токене"),
@@ -217,10 +215,50 @@ async def about_token(call: types.CallbackQuery, callback_data: dict, db, dp, us
 			"📲 Активирован: ДА" if token_users else "📲 Активирован: НЕТ",
 			"",
 			"📆 Дата создания: " + hitalic(str(token_info['create_time'])),
-			"⏳ Время жизни: " + str(30) + ' дней.',
+			"⏳ Активен до: " + str(token_info['time_death'].strftime('%Y-%m-%d')),
 			"",
 			])
 		await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)
+
+async def edit_time_live_token(call: types.CallbackQuery, callback_data: dict, db, dp, user_info, settings):
+	text = '\n'.join([
+		hbold("📆 Выберите период"),
+		])
+	keyboard = types.InlineKeyboardMarkup()
+	keyboard.add(types.InlineKeyboardButton("7 дней", callback_data = period_callback.new(period = "7", id = callback_data['id'])),
+				types.InlineKeyboardButton("10 дней", callback_data = period_callback.new(period = "10", id = callback_data['id'])),
+				types.InlineKeyboardButton("20 дней", callback_data = period_callback.new(period = "20", id = callback_data['id'])),
+				types.InlineKeyboardButton("30 дней", callback_data = period_callback.new(period = "30", id = callback_data['id'])))
+	keyboard.add(types.InlineKeyboardButton("↩️ Назад", callback_data = token_callback.new(action = "about", id = callback_data['id'])))
+	await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)
+
+async def update_time_live_token(call: types.CallbackQuery, callback_data: dict, db, dp, user_info, settings):
+	token_info = await db.get_tokenInfo(id = callback_data['id'])
+	new_time = token_info['time_death'] + timedelta(days = int(callback_data['period']))
+	await db.update_time_live_token(id = callback_data['id'], datetime = new_time)
+	await call.bot.answer_callback_query(callback_query_id = call.id, text = "✅ Время жизни токена изменено", cache_time = 0, show_alert = True)
+	token_info = await db.get_tokenInfo(id = callback_data['id'])
+	token_users = await db.get_tokenUsers(id = callback_data['id'])
+	
+	keyboard = types.InlineKeyboardMarkup()
+	keyboard.add(types.InlineKeyboardButton("↩️ Назад", callback_data = token_callback.new(action = "show", id = 'None')))
+	keyboard.add(types.InlineKeyboardButton("⚙️ Продлить время", callback_data = token_callback.new(action = "edit_time", id = callback_data['id'])))
+	if token_users:
+		keyboard.add(types.InlineKeyboardButton("👨‍💻 Пользователи", callback_data = tokenUsers_callback.new(id = callback_data['id'])))
+	keyboard.insert(types.InlineKeyboardButton("🗑 Удалить", callback_data = token_callback.new(action = "attention", id = callback_data['id'])))
+
+	text = '\n'.join([
+		hbold("❔ Информация об токене"),
+		"",
+		"🆔: " + str(token_info['id']),
+		"#️⃣  Токен: " + hitalic("(click to copy)\n") + str(hcode(token_info['token'])),
+		"📲 Активирован: ДА" if token_users else "📲 Активирован: НЕТ",
+		"",
+		"📆 Дата создания: " + hitalic(str(token_info['create_time'])),
+		"⏳ Активен до: " + str(token_info['time_death'].strftime('%Y-%m-%d')),
+		"",
+		])
+	await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)
 
 async def delete_token(call: types.CallbackQuery, callback_data: dict, db, dp, user_info, settings):
 	if callback_data['action'] == "attention":
@@ -244,15 +282,19 @@ async def delete_token(call: types.CallbackQuery, callback_data: dict, db, dp, u
 			"📲 Активирован: ДА" if token_users else "📲 Активирован: НЕТ",
 			"",
 			"📆 Дата создания: " + hitalic(str(token_info['create_time'])),
-			"⏳ Время жизни: " + str(0) + ' дней.',
+			"⏳ Активен до: " + str(token_info['time_death']),
 			"",
 			])
 		await call.bot.answer_callback_query(callback_query_id = call.id, text = "❗️ Будьте внимательны! ❗️\n\nДля удаления нажмите ещё раз", cache_time = 0, show_alert = True)
 		await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)
 	elif callback_data['action'] == "delete":
+		token_info = await db.get_tokenInfo(id = callback_data['id'])
+		token_users = await db.get_tokenUsers(id = callback_data['id'])
 		await db.delete_token(id = callback_data['id'])
-		await db.delete_token(id = callback_data['id'])
+		await db.delete_settings(token = token_info['token'])
+		await db.update_user_tokenID(token_id = 0, chat_id = token_users['chat_id'])
 		await call.bot.answer_callback_query(callback_query_id = call.id, text = "♻️ ТОКЕН УДАЛЁН ♻️", cache_time = 0, show_alert = True)
+		await call.bot.send_message(chat_id = token_users['chat_id'], text = hbold("❌ Администратор удалил токен доступа"))
 		await call.bot.delete_message(chat_id = user_info['chat_id'], message_id = call.message.message_id)
 		await show_tokens_list(call, callback_data, db, dp, user_info, settings)
 		return
@@ -289,6 +331,9 @@ async def create_new_token(call: types.CallbackQuery, callback_data: dict, db, d
 	msg = await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = "⌨️", reply_markup = None)
 	token = generate_random_token()
 
+	time_now = datetime.now()
+	time_die_token = time_now + timedelta(days = 30)
+
 	keyboard = types.InlineKeyboardMarkup()
 	keyboard.add(types.InlineKeyboardButton("🗂 Посмотреть список", callback_data = token_callback.new(action = "show", id = 'None')))
 	text = '\n'.join([
@@ -297,9 +342,10 @@ async def create_new_token(call: types.CallbackQuery, callback_data: dict, db, d
 		"#️⃣  " + hcode(str(token)),
 		hitalic("(click to copy)\n"),
 		"",
-		"⌚️ Время создания: " + hcode(str(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))),
+		"⌚️ Время создания: " + hcode(str(time_now.strftime('%Y-%m-%d %H:%M:%S'))),
+		"⌚️ Токен активен до: " + hcode(str(time_die_token.strftime('%Y-%m-%d'))),
 		])
-	await db.add_new_token(token = token)
+	await db.add_new_token(token = token, time_die = time_die_token.strftime('%Y-%m-%d %H:%M:%S'))
 	await asyncio.sleep(2)
 	await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = msg.message_id, text = text, reply_markup = keyboard)
 
@@ -644,6 +690,8 @@ def register_admin(dp: Dispatcher):
 	dp.register_message_handler(page_access_token, IsPrivate(), IsAdmin(), text = "🔐 Токены доступа")
 	dp.register_callback_query_handler(show_tokens_list, token_callback.filter(action = "show"))
 	dp.register_callback_query_handler(about_token, token_callback.filter(action = "about"))
+	dp.register_callback_query_handler(edit_time_live_token, token_callback.filter(action = "edit_time"))
+	dp.register_callback_query_handler(update_time_live_token, period_callback.filter())
 	dp.register_callback_query_handler(delete_token, token_callback.filter(action = ["attention", "delete"]))
 	dp.register_callback_query_handler(tokenUsers_list, tokenUsers_callback.filter())
 	dp.register_callback_query_handler(about_user, aboutUser_callback.filter())
@@ -659,3 +707,4 @@ def register_admin(dp: Dispatcher):
 	dp.register_message_handler(page_broadcast_keyboard, IsPrivate(), IsAdmin(1), state = StatesBroadcast.keyboard, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(page_broadcast_timeout, IsPrivate(), IsAdmin(1), state = StatesBroadcast.timeout, content_types = types.ContentTypes.ANY)
 	
+# dev t.me/cayse

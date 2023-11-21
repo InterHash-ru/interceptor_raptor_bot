@@ -9,6 +9,16 @@ class UserUpdateMiddleware(LifetimeControllerMiddleware):
 		user = data.get('user')
 		user_info = data.get('user_info')
 
+		token_list = await db.get_all_tokens()
+		now = datetime.now()
+		if db and user and user_info and token_list:
+			for token in token_list:
+				if now >= token['time_death']:
+					await db.delete_token(id = token['id'])
+					token_users = await db.get_tokenUsers(id = token['id'])
+					await db.delete_settings(token = token['token'])
+					await db.update_user_tokenID(token_id = 0, chat_id = token_users['chat_id'])
+
 		if db and user and user_info:
 			now = datetime.now()
 			difference = user_info['date_last_action'] + timedelta(minutes = 30)

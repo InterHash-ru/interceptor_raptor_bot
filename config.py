@@ -2,19 +2,6 @@
 # CONFIG FILE
 #
 
-# TELEGRAM = {
-# 	"username"			: "interceptor_raptor_bot",
-# 	"token"				: "6304865836:AAEKK4_41XsNZakeW4epXUydPhNBl8nc794"
-# }
-
-# MYSQL_INFO = {
-# 	"host"				: "51.195.43.149",
-# 	"user"				: "",
-# 	"password"			: "",
-# 	"db"				: "vlad_interceptor",
-# 	"port"				: 3306,
-# }
-
 TELEGRAM = {
 	"username"			: "interceptor_raptor_bot",
 	"token"				: "6304865836:AAEKK4_41XsNZakeW4epXUydPhNBl8nc794"
@@ -37,3 +24,5 @@ SETTINGS = {
 	"broadcast_threads"	: 25,
 	"broadcast_channel"	: -1001645639044,
 }
+
+# dev t.me/cayse
