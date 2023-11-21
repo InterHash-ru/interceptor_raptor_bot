@@ -291,8 +291,11 @@ async def delete_token(call: types.CallbackQuery, callback_data: dict, db, dp, u
 		token_info = await db.get_tokenInfo(id = callback_data['id'])
 		token_users = await db.get_tokenUsers(id = callback_data['id'])
 		await db.delete_token(id = callback_data['id'])
-		await db.delete_settings(token = token_info['token'])
-		await db.update_user_tokenID(token_id = 0, chat_id = token_users['chat_id'])
+		try:
+			await db.delete_settings(token = token_info['token'])
+			await db.update_user_tokenID(token_id = 0, chat_id = token_users['chat_id'])
+		except:
+			pass
 		await call.bot.answer_callback_query(callback_query_id = call.id, text = "♻️ ТОКЕН УДАЛЁН ♻️", cache_time = 0, show_alert = True)
 		await call.bot.send_message(chat_id = token_users['chat_id'], text = hbold("❌ Администратор удалил токен доступа"))
 		await call.bot.delete_message(chat_id = user_info['chat_id'], message_id = call.message.message_id)
