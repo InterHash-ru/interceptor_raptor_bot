@@ -32,7 +32,7 @@ async def is_valid_token(token):
 	return bool(re.match(pattern, token))
 
 async def is_valid_url(message):
-	if all('https://t.me/' in url for url in message) and len(message) <= 5:
+	if all('https://t.me/' in url for url in message):
 		return True
 	else:
 		return False
