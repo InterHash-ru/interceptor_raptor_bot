@@ -65,14 +65,16 @@ async def check_rights_bot(list_id, message):
 async def check_key_word(message, bot_conf):
 	key_word = ast.literal_eval(bot_conf['key_word'])
 	keyStop_word = ast.literal_eval(bot_conf['keyStop_word'])
-	message = message.split()
+	
+	cleaned_message = re.sub(r'[^a-zA-Z0-9а-яА-ЯёЁ]', ' ', message)
+	words = cleaned_message.split()
 	
 	unique_array = set()
-	for word in message:
+	for word in words:
 		if word.lower() in key_word and word.lower() not in keyStop_word:
 			unique_array.add("#" + word.lower())
+	
 	return list(unique_array)
-
 
 #
 # HANDLERS USERS
@@ -83,7 +85,6 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 		if user_info['active'] == 0:
 			conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
 			if conf:
-
 				conf['tracked_groups'] = ast.literal_eval(conf['tracked_groups'])
 				conf['chats_for_transfer'] = ast.literal_eval(conf['chats_for_transfer'])
 				conf['key_word'] = ast.literal_eval(conf['key_word'])
@@ -124,8 +125,9 @@ async def show_running(message: types.Message, db, dp, user_info, telegram):
 		conf['chats_for_transfer'] = ast.literal_eval(conf['chats_for_transfer'])
 		conf['key_word'] = ast.literal_eval(conf['key_word'])
 		conf['keyStop_word'] = ast.literal_eval(conf['keyStop_word'])
+		status = hbold("🟢 Бот активно работает") if user_info['active'] else hbold("⏸ Бот приостановлен")
 		text = '\n'.join([
-			hbold("🟢 Бот активно работает"),
+			status,
 			"",
 			"📤 Какие группы отслеживаются:",
 			"\n".join(hcode(str(group)) for group in conf['tracked_groups']),
@@ -140,7 +142,10 @@ async def show_running(message: types.Message, db, dp, user_info, telegram):
 			"🆔 API_ID: " + hcode(str(conf['api_id'])),
 			"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
 				])
-		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏸ Приостановить работу'],['🎛 Настройки']], user_info['is_admin']))
+		if user_info['active']:
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏸ Приостановить работу'],['🎛 Настройки']], user_info['is_admin']))
+		else:
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'],['🎛 Настройки']], user_info['is_admin']))
 
 async def settings_bot(message: types.Message, db, dp, user_info, settings, state: FSMContext):
 	conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
@@ -244,11 +249,11 @@ async def edit_keyWord(message: types.Message, db, dp, user_info, telegram, stat
 	await StatesEditValue.get_keyWord.set()
 
 async def update_keyWord(message: types.Message, db, dp, user_info, telegram, state: FSMContext):
-	if message.text == '✖️ Отменить':
-		await state.finish()
-		await show_running(message, db, dp, user_info, telegram)
-		return
 	if message.text:
+		if message.text == '✖️ Отменить':
+			await state.finish()
+			await show_running(message, db, dp, user_info, telegram)
+			return
 		text = '\n'.join([
 			"✅ Ключевые слова добавлены",
 			"",
@@ -256,9 +261,10 @@ async def update_keyWord(message: types.Message, db, dp, user_info, telegram, st
 			"",
 			f"{hcode(message.text)}"
 			])
-		await db.update_keyWord(chat_id = user_info['chat_id'], value = message.text.split())
+		await db.update_keyWord(chat_id = user_info['chat_id'], key_word = message.text.split())
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		await state.finish()
+		await show_running(message, db, dp, user_info, telegram)
 	elif message.document.mime_type == 'text/plain':
 		file_id = message.document.file_id
 		file_info = await message.bot.get_file(file_id)
@@ -272,6 +278,7 @@ async def update_keyWord(message: types.Message, db, dp, user_info, telegram, st
 
 		with open(file_path_on_server, 'r', encoding = "utf-8") as file:
 			file_content = file.read()
+			array = file_content.split()
 			text = '\n'.join([
 				"✅ Ключевые слова добавлены",
 				"",
@@ -279,7 +286,7 @@ async def update_keyWord(message: types.Message, db, dp, user_info, telegram, st
 				"",
 				f"{hcode(file_content)}"
 				])
-			await db.update_keyWord(chat_id = user_info['chat_id'], value = file_content.split())
+			await db.update_keyWord(chat_id = user_info['chat_id'], key_word = array)
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		await state.finish()
 		await show_running(message, db, dp, user_info, telegram)
@@ -302,7 +309,7 @@ async def update_key_StopWord(message: types.Message, db, dp, user_info, telegra
 		await show_running(message, db, dp, user_info, telegram)
 		return
 	if message.text:
-		await db.update_keyStopWord(chat_id = user_info['chat_id'], value = message.text.split())
+		await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = message.text.split())
 		text = '\n'.join([
 			"✅ Список стоп-слов добавлен",
 			"",
@@ -312,6 +319,7 @@ async def update_key_StopWord(message: types.Message, db, dp, user_info, telegra
 			])
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		await state.finish()
+		await show_running(message, db, dp, user_info, telegram)
 	elif message.document.mime_type == 'text/plain':
 		file_id = message.document.file_id
 		file_info = await message.bot.get_file(file_id)
@@ -332,11 +340,14 @@ async def update_key_StopWord(message: types.Message, db, dp, user_info, telegra
 				"",
 				f"{hcode(file_content)}"
 				])
-			await db.update_keyStopWord(chat_id = user_info['chat_id'], value = file_content.split())
+			await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = file_content.split())
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
+			file.close()
 			os.remove(file_path_on_server)
 			await state.finish()
+			
 			await show_running(message, db, dp, user_info, telegram)
+
 #
 # RUN INTECEPTOR
 #
@@ -780,17 +791,6 @@ async def save_settings(message: types.Message, db, dp, user_info, telegram, set
 
 def register_user(dp: Dispatcher):
 	dp.register_message_handler(command_start, CommandStart(), IsPrivate())
-	# settings
-	dp.register_message_handler(settings_bot, IsPrivate(), state = "*", text = "🎛 Настройки")
-	dp.register_message_handler(edit_tracked_groups, IsPrivate(), state = "*", text = "▪️ Откуда перехватывать")
-	dp.register_message_handler(update_tracked_groups, IsPrivate(), state = StatesEditValue.get_trackedGroup)
-	dp.register_message_handler(edit_forTransfer, IsPrivate(), state = "*", text = "▪️ Куда будут приходить")
-	dp.register_message_handler(update_forTransfer, IsPrivate(), state = StatesEditValue.get_forTransfer)
-	dp.register_message_handler(edit_keyWord, IsPrivate(), state = "*", text = "▪️ Список ключевых слов")
-	dp.register_message_handler(update_keyWord, IsPrivate(), state = StatesEditValue.get_keyWord)
-	dp.register_message_handler(edit_key_StopWord, IsPrivate(), state = "*", text = "▪️ Список ключ-стоп-слов")
-	dp.register_message_handler(update_key_StopWord, IsPrivate(), state = StatesEditValue.get_keyStopWord)
-	# settings
 	dp.register_message_handler(run_intecepter_bot, IsPrivate(), text = "🟢 Запустить перехват")
 	dp.register_message_handler(stop_intecepter_bot, IsPrivate(), text = "⏸ Приостановить работу")
 
@@ -806,6 +806,16 @@ def register_user(dp: Dispatcher):
 	dp.register_message_handler(get_session, IsPrivate(), state = StatesActivate.get_session, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(save_settings, IsPrivate(), state = StatesActivate.save_settings, content_types = types.ContentTypes.ANY)
 
+	# edit settings
+	dp.register_message_handler(settings_bot, IsPrivate(), state = "*", text = "🎛 Настройки")
+	dp.register_message_handler(edit_tracked_groups, IsPrivate(), state = "*", text = "▪️ Откуда перехватывать")
+	dp.register_message_handler(update_tracked_groups, IsPrivate(), state = StatesEditValue.get_trackedGroup, content_types = types.ContentTypes.ANY)
+	dp.register_message_handler(edit_forTransfer, IsPrivate(), state = "*", text = "▪️ Куда будут приходить")
+	dp.register_message_handler(update_forTransfer, IsPrivate(), state = StatesEditValue.get_forTransfer, content_types = types.ContentTypes.ANY)
+	dp.register_message_handler(edit_keyWord, IsPrivate(), state = "*", text = "▪️ Список ключевых слов")
+	dp.register_message_handler(update_keyWord, IsPrivate(), state = StatesEditValue.get_keyWord, content_types = types.ContentTypes.ANY)
+	dp.register_message_handler(edit_key_StopWord, IsPrivate(), state = "*", text = "▪️ Список ключ-стоп-слов")
+	dp.register_message_handler(update_key_StopWord, IsPrivate(), state = StatesEditValue.get_keyStopWord, content_types = types.ContentTypes.ANY)
 	# handlers admin
 	dp.register_message_handler(command_start, IsPrivate(), text = "◀️ Главное меню")
 

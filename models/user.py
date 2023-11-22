@@ -105,13 +105,13 @@ class User:
 		sql = "UPDATE bot_settings SET chats_for_transfer = %s WHERE chat_id = %s"
 		return await self.execute(sql, (value, chat_id), execute = True)
 
-	async def update_keyWord(self, chat_id, value):
+	async def update_keyWord(self, chat_id, key_word):
 		sql = "UPDATE bot_settings SET key_word = %s WHERE chat_id = %s"
-		return await self.execute(sql, (value, chat_id), execute = True)
+		return await self.execute(sql, (str(key_word), chat_id), execute = True)
 
-	async def update_keyStopWord(self, chat_id, value):
+	async def update_keyStopWord(self, chat_id, keyStop_word):
 		sql = "UPDATE bot_settings SET keyStop_word = %s WHERE chat_id = %s"
-		return await self.execute(sql, (value, chat_id), execute = True)
+		return await self.execute(sql, (str(keyStop_word), chat_id), execute = True)
 
 	# ADMIN 'statistics'
 	async def get_stats_users(self):

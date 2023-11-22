@@ -20,13 +20,8 @@ class StatesEditValue(StatesGroup):
 	get_keyWord = State()
 	get_keyStopWord = State()
 
-
-
 class StatesRun(StatesGroup):
 	active = State()
-
-
-
 
 class StatesBroadcast(StatesGroup):
 	action = State()
