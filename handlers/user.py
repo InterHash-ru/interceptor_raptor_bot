@@ -68,13 +68,23 @@ async def check_key_word(message, bot_conf):
 	
 	cleaned_message = re.sub(r'[^a-zA-Z0-9а-яА-ЯёЁ]', ' ', message)
 	words = cleaned_message.split()
-	
 	unique_array = set()
 	for word in words:
-		if word.lower() in key_word and word.lower() not in keyStop_word:
+		if word.lower() in keyStop_word:
+			return False
+		if word.lower() in key_word:
 			unique_array.add("#" + word.lower())
 	
 	return list(unique_array)
+
+async def uniqueness_check(chat_id, unique_users, settings_id):
+	if unique_users:
+		for item in unique_users:
+			if item['chat_id'] == chat_id and item['settings_id'] == settings_id:
+				return False
+		return True
+	else:
+		return True
 
 #
 # HANDLERS USERS
@@ -396,30 +406,32 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 				consilience = await check_key_word(event.message.message, bot_conf)
 				if consilience:
 					sender_info = await client.get_entity(event.message.from_id)
-					if sender_info.bot == False:
+					if await uniqueness_check(chat_id = sender_info.id, unique_users = await db.get_all_unique(), settings_id = bot_conf['id']) == True:
+						if sender_info.bot == False and sender_info.scam == False:
+							await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
 
-						text_message = event.message.message.split()
-						text_message = ' '.join(text_message[:15])
-						
-						keyboard = types.InlineKeyboardMarkup()
-						keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
+							text_message = event.message.message.split()
+							text_message = ' '.join(text_message[:15])
+							
+							keyboard = types.InlineKeyboardMarkup()
+							keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
 
-						text = '\n'.join([
-							hbold("💬 Chat Name: ") + str(dialog.name),
-							hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
-							"",
-							hbold("👤 Sender Name: ") + str(sender_info.first_name),
-							hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
-							hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
-							hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
-							"",
-							hbold("📝 Message: ") + hitalic(text_message + "..."),
-							hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
-							])
+							text = '\n'.join([
+								hbold("💬 Chat Name: ") + str(dialog.name),
+								hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
+								"",
+								hbold("👤 Sender Name: ") + str(sender_info.first_name),
+								hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
+								hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
+								hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
+								"",
+								hbold("📝 Message: ") + hitalic(text_message + "..."),
+								hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
+								])
 
-						chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
-						for chat_id in chats_for_transfer:
-							await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
+							chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
+							for chat_id in chats_for_transfer:
+								await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
 
 async def stop_intecepter_bot(message: types.Message, db, dp, user_info, settings, telegram):
 	if dp['data']:

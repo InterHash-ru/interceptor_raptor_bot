@@ -323,9 +323,7 @@ async def about_user(call: types.CallbackQuery, callback_data: dict, db, dp, use
 		"▪️ Username: @" + str(user['username']),
 		"",
 		"▪️ Первый запуск бота: " + hcode(str(user['date_start'])),
-		"▪️ Последняя активность: " + hcode(str(user['date_start'])),
-		"",
-		"▪️ Дата активации токена: " + hcode(str(user['time_activate_token'])),
+		"▪️ Последняя активность: " + hcode(str(user['date_last_action'])),
 		])
 
 	await call.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = call.message.message_id, text = text, reply_markup = keyboard)

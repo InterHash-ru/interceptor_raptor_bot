@@ -68,7 +68,7 @@ class User:
 
 	async def get_tokenUsers(self, id):
 		sql = "SELECT * FROM users WHERE token_id = %s"
-		return await self.execute(sql, (id), fetchone = True)
+		return await self.execute(sql, (id), fetch = True)
 
 	async def delete_token(self, id):
 		sql = "DELETE FROM access WHERE id = %s"
@@ -86,7 +86,6 @@ class User:
 	# TABLE 'bot_settings' INSERT, SELECT, DELETE
 	async def add_new_settings(self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash):
 		sql = "INSERT INTO bot_settings (chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-		print(chat_id)
 		return await self.execute(sql, (chat_id, token, str(tracked_groups), str(chats_for_transfer), str(key_word), str(keyStop_word), session_file, api_id, api_hash), execute = True)
 
 	async def delete_settings(self, token):
@@ -112,6 +111,17 @@ class User:
 	async def update_keyStopWord(self, chat_id, keyStop_word):
 		sql = "UPDATE bot_settings SET keyStop_word = %s WHERE chat_id = %s"
 		return await self.execute(sql, (str(keyStop_word), chat_id), execute = True)
+
+
+	# TABLE 'unique_users' INSERT, SELECT, DELETE
+	async def get_all_unique(self):
+		sql = "SELECT * FROM unique_users"
+		return await self.execute(sql, fetch = True)
+
+	async def add_new_unique_user(self, chat_id, settings_id, _from, url):
+		sql = "INSERT INTO unique_users (chat_id, settings_id, _from, url) VALUES (%s, %s, %s, %s)"
+		return await self.execute(sql, (chat_id, settings_id, _from, url), execute = True)
+
 
 	# ADMIN 'statistics'
 	async def get_stats_users(self):
