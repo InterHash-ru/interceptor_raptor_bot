@@ -271,7 +271,10 @@ async def update_keyWord(message: types.Message, db, dp, user_info, telegram, st
 			"",
 			f"{hcode(message.text)}"
 			])
-		await db.update_keyWord(chat_id = user_info['chat_id'], key_word = message.text.split())
+		array = []
+		for word in message.text.split():
+			array.append(word.lower())
+		await db.update_keyWord(chat_id = user_info['chat_id'], key_word = array)
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		await state.finish()
 		await show_running(message, db, dp, user_info, telegram)
@@ -288,7 +291,9 @@ async def update_keyWord(message: types.Message, db, dp, user_info, telegram, st
 
 		with open(file_path_on_server, 'r', encoding = "utf-8") as file:
 			file_content = file.read()
-			array = file_content.split()
+			array = []
+			for word in file_content.split():
+				array.append(word.lower())
 			text = '\n'.join([
 				"✅ Ключевые слова добавлены",
 				"",
@@ -319,7 +324,10 @@ async def update_key_StopWord(message: types.Message, db, dp, user_info, telegra
 		await show_running(message, db, dp, user_info, telegram)
 		return
 	if message.text:
-		await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = message.text.split())
+		array = []
+		for word in message.text.split():
+			array.append(word.lower())
+		await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = array)
 		text = '\n'.join([
 			"✅ Список стоп-слов добавлен",
 			"",
@@ -350,7 +358,10 @@ async def update_key_StopWord(message: types.Message, db, dp, user_info, telegra
 				"",
 				f"{hcode(file_content)}"
 				])
-			await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = file_content.split())
+			array = []
+			for word in file_content.split():
+				array.append(word.lower())
+			await db.update_keyStopWord(chat_id = user_info['chat_id'], keyStop_word = array)
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 			file.close()
 			os.remove(file_path_on_server)
@@ -598,7 +609,9 @@ async def get_key_word(message: types.Message, db, dp, user_info, telegram, sett
 			f"{hcode(message.text)}"
 			])
 		async with state.proxy() as array:
-			array['key_word'] = message.text.split()
+			array['key_word'] = []
+			for word in message.text.split():
+				array['key_word'].append(word.lower())
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 
 		text = '\n'.join([
@@ -632,7 +645,10 @@ async def get_key_word(message: types.Message, db, dp, user_info, telegram, sett
 				f"{hcode(file_content)}"
 				])
 		async with state.proxy() as array:
-			array['key_word'] = file_content.split()
+			array['key_word'] = []
+			for word in file_content.split():
+				array['key_word'].append(word.lower())
+			print(array['key_word'])
 		try:
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		except:
