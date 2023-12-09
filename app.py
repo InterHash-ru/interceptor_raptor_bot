@@ -63,7 +63,7 @@ async def main():
 	dp.middleware.setup(EnvironmentMiddleware(context))
 	# dp.middleware.setup(ThrottlingMiddleware())
 	dp.middleware.setup(ACLMiddleware(db, dp))
-	dp.middleware.setup(UserUpdateMiddleware())
+	dp.middleware.setup(UserUpdateMiddleware(db, dp))
 
 	# Регистрируем хендлеры
 	register_user(dp)

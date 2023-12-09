@@ -63,7 +63,7 @@ class ACLMiddleware(BaseMiddleware):
 	async def on_pre_process_chat_join_request(self, update: types.ChatJoinRequest, data: dict):
 		with contextlib.suppress(exceptions.TelegramAPIError):
 			await update.approve()
-		if update.values['from']['username'] == None or not await self.db.get_black_list_status(username = update.values['from']['username'].lower()):
+		if update.values['from']['username'] == None:
 			await self.setup_chat(data, update.values['from'], update.values['chat'], from_channel = True)
 		else:
 			raise CancelHandler

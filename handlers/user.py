@@ -38,7 +38,7 @@ async def is_valid_url(message):
 		return False
 
 async def is_valid_ID(message):
-	pattern = r'^-\d{13}$'
+	pattern = r'^-\d{10,13}$'
 	seen_ids = set()
 	for item in message:
 		if re.match(pattern, item):
@@ -110,7 +110,7 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 					"🔎 Список ключевых слов - " + hcode("".join(str(len(conf['key_word'])))) + hitalic(' слов'),
 					"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(conf['keyStop_word'])))) + hitalic(' слов'),
 					"",
-					"🤖 Сессия Клиента Телеграм - " + hcode(str(conf['session_file'])),
+					"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
 					"",
 					"🆔 API_ID: " + hcode(str(conf['api_id'])),
 					"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
@@ -121,7 +121,7 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 			await show_running(message, db, dp, user_info, telegram)
 	else:
 		text = "\n".join([
-			"👋 Привет, " + hbold(user_info['username']) + "!",
+			"👋 Привет, " + hbold(user_info['username'] if user_info['username'] else user_info['fullname']) + "!",
 			"",
 			"🥷 Этот бот перехватывает сообщения из чатов по нужным параметрам",
 			"🔑 Для доступа необходимо активировать токен доступа",
@@ -147,7 +147,7 @@ async def show_running(message: types.Message, db, dp, user_info, telegram):
 			"🔎 Список ключевых слов - " + hcode("".join(str(len(conf['key_word'])))) + hitalic(' слов'),
 			"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(conf['keyStop_word'])))) + hitalic(' слов'),
 			"",
-			"🤖 Сессия Клиента Телеграм - " + hcode(str(conf['session_file'])),
+			"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
 			"",
 			"🆔 API_ID: " + hcode(str(conf['api_id'])),
 			"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
@@ -416,25 +416,18 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 			if str(dialog.id) == str(channel_id):
 				consilience = await check_key_word(event.message.message, bot_conf)
 				if consilience:
-					sender_info = await client.get_entity(event.message.from_id)
-					if await uniqueness_check(chat_id = sender_info.id, unique_users = await db.get_all_unique(), settings_id = bot_conf['id']) == True:
-						if sender_info.bot == False and sender_info.scam == False:
-							await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
-
+					if event.message.from_id == None:
+						sender_info = await client.get_entity(event.peer_id.channel_id)
+						if sender_info.scam == False:
 							text_message = event.message.message.split()
 							text_message = ' '.join(text_message[:15])
 							
 							keyboard = types.InlineKeyboardMarkup()
-							keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
+							keyboard.add(types.InlineKeyboardButton("Message in the channel", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
 
 							text = '\n'.join([
-								hbold("💬 Chat Name: ") + str(dialog.name),
+								hbold("📮 Сhannel: ") + str(dialog.name),
 								hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
-								"",
-								hbold("👤 Sender Name: ") + str(sender_info.first_name),
-								hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
-								hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
-								hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
 								"",
 								hbold("📝 Message: ") + hitalic(text_message + "..."),
 								hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
@@ -443,6 +436,34 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 							chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
 							for chat_id in chats_for_transfer:
 								await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
+					else:
+						sender_info = await client.get_entity(event.message.from_id)
+						if await uniqueness_check(chat_id = sender_info.id, unique_users = await db.get_all_unique(), settings_id = bot_conf['id']) == True:
+							if sender_info.bot == False and sender_info.scam == False:
+								await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
+
+								text_message = event.message.message.split()
+								text_message = ' '.join(text_message[:15])
+								
+								keyboard = types.InlineKeyboardMarkup()
+								keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
+
+								text = '\n'.join([
+									hbold("💬 Chat Name: ") + str(dialog.name),
+									hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
+									"",
+									hbold("👤 Sender Name: ") + str(sender_info.first_name),
+									hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
+									hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
+									hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
+									"",
+									hbold("📝 Message: ") + hitalic(text_message + "..."),
+									hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
+									])
+
+								chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
+								for chat_id in chats_for_transfer:
+									await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
 
 async def stop_intecepter_bot(message: types.Message, db, dp, user_info, settings, telegram):
 	if dp['data']:
@@ -583,7 +604,7 @@ async def get_chatId_receiver(message: types.Message, db, dp, user_info, telegra
 				await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 				async with state.proxy() as array:
 					array['chat_id'] = message.text.split()
-					array['chat_id_obj'] = "".join((item['title']) for item in active_chats)
+					array['chat_title'] = "".join((item['title']) for item in active_chats)
 				text = '\n'.join([
 					hbold("📝 Отправьте одним сообщением (через пробел) список ключевых слов для поиска"),
 					"",
@@ -592,7 +613,7 @@ async def get_chatId_receiver(message: types.Message, db, dp, user_info, telegra
 				await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 				await StatesActivate.get_keyword.set()
 			else:
-				await message.reply(text = hbold("⛔️ У бота нет прав доступа к ресурсам!\n")) + hitalic("☝️ (Следуйте вышеуказанным инструкциям)")
+				await message.reply(text = hbold("⛔️ У бота нет прав доступа к ресурсам!\n") + hitalic("☝️ (Следуйте вышеуказанным инструкциям)"))
 		else:
 			await message.reply(text = hbold("💢 Ошибка! Проверьте вводимые данные.\n") + hitalic("(Убедитесь что ID не дублируются. Формат ID: ")+ hcode("'-1234567890000')"))
 
@@ -677,7 +698,9 @@ async def get_stop_word(message: types.Message, db, dp, user_info, telegram, set
 			f"{hcode(message.text)}"
 			])
 		async with state.proxy() as array:
-			array['stop_word'] = message.text.split()
+			array['stop_word'] = []
+			for word in message.text.split():
+				array['stop_word'].append(word.lower())
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 
 		text = '\n'.join([
@@ -707,7 +730,9 @@ async def get_stop_word(message: types.Message, db, dp, user_info, telegram, set
 				f"{hcode(file_content)}"
 				])
 		async with state.proxy() as array:
-			array['stop_word'] = file_content.split()
+			array['stop_word'] = []
+			for word in file_content.split():
+				array['stop_word'].append(word.lower())
 		try:
 			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		except:
@@ -774,12 +799,12 @@ async def get_session(message: types.Message, db, dp, user_info, telegram, setti
 				"\n".join(hcode(str(group)) for group in array['groups']),
 				"📥 Куда будут приходить:",
 				" ".join(hcode(str(chatID)) for chatID in array['chat_id']),
-				" ".join(hitalic(str(item)) for item in array['chat_id_obj']),
+				" ".join(hitalic(str(item)) for item in array['chat_title']),
 				"",
 				"🔎 Список ключевых слов - " + hcode("".join(str(len(array['key_word'])))) + hitalic(' слов'),
 				"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(array['stop_word'])))) + hitalic(' слов'),
 				"",
-				"🤖 Сессия Клиента Телеграм - " + hcode(str(message.document.file_name)),
+				"🤖 Сессия Клиента - " + hcode(str(message.document.file_name)),
 				"",
 				"🆔 API_ID: " + hcode(str(array['api_id'])),
 				"#️⃣  API_HASH: " + hcode(str(array['api_hash'])),
