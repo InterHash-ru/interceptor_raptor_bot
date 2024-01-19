@@ -4,6 +4,8 @@ import re
 import ast
 import json
 import asyncio
+import logging
+import requests
 from datetime import datetime, timedelta
 
 from aiogram import types
@@ -86,6 +88,36 @@ async def uniqueness_check(chat_id, unique_users, settings_id):
 	else:
 		return True
 
+async def create_new_contact(first_name, last_name, phone):
+	name = first_name + " " if first_name != None else ""
+	name += last_name if last_name != None else ""
+	data = {
+		"fields": {
+			"NAME"			: name,
+			"PHONE"			: [{"VALUE": phone if phone != None else ""}],
+			"SOURCE_ID" 	: "UC_FENJGP",
+		}
+	}
+	response = requests.post("https://interhash.bitrix24.ru/rest/26/6fi6xp8yoxqfwyty/crm.contact.add.json?", json = data, headers = {"Content-Type": "application/json"})
+	if response.status_code == 200:
+		contact = response.json()
+		return {'id': contact['result'], 'fullname': name}
+
+async def create_crm_param(source, fullname, comments, contact_id):
+	data = {
+		"fields": {
+			"UF_CRM_1705409893052"	: source,
+			"UF_CRM_1652807468307" : fullname,
+			"CATEGORY_ID" 	: 0,
+			"STATUS_ID"		: "NEW",
+			"SOURCE_ID" 	: "UC_FENJGP",
+			"COMMENTS"		: comments,
+			"ASSIGNED_BY_ID": 2098,
+			"CONTACT_ID" 	: contact_id,
+		},
+	}
+	return data
+
 #
 # HANDLERS USERS
 #
@@ -100,7 +132,7 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 				conf['key_word'] = ast.literal_eval(conf['key_word'])
 				conf['keyStop_word'] = ast.literal_eval(conf['keyStop_word'])
 				text = '\n'.join([
-					hbold("⚙️ Настройки конфигурации перехватчика"),
+					hbold("🎛 Конфигурация перехватчика"),
 					"",
 					"📤 Откуда будут перехватываться:",
 					"\n".join(hcode(str(group)) for group in conf['tracked_groups']),
@@ -110,13 +142,13 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 					"🔎 Список ключевых слов - " + hcode("".join(str(len(conf['key_word'])))) + hitalic(' слов'),
 					"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(conf['keyStop_word'])))) + hitalic(' слов'),
 					"",
-					"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
+					"📊 CRM-система: ➕ Подключена " + hlink("URL", conf['crm_url']) if conf['crm_url'] else "📊 CRM-система: ✖️ Не подключена",
 					"",
+					"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
 					"🆔 API_ID: " + hcode(str(conf['api_id'])),
 					"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
 						])
-
-				await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'], ['🎛 Настройки']], user_info['is_admin']))
+				await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'], ['🎛 Настройки']], user_info['is_admin']), disable_web_page_preview = True)
 		elif user_info['active'] == 1:
 			await show_running(message, db, dp, user_info, telegram)
 	else:
@@ -126,7 +158,7 @@ async def command_start(message: types.Message, db, dp, user_info, telegram):
 			"🥷 Этот бот перехватывает сообщения из чатов по нужным параметрам",
 			"🔑 Для доступа необходимо активировать токен доступа",
 		])
-		await message.bot.send_message(user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🔐 Активировать']], user_info['is_admin']), disable_web_page_preview = True)
+		await message.bot.send_message(user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🔐 Активировать']], user_info['is_admin']))
 
 async def show_running(message: types.Message, db, dp, user_info, telegram):
 	conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
@@ -135,27 +167,38 @@ async def show_running(message: types.Message, db, dp, user_info, telegram):
 		conf['chats_for_transfer'] = ast.literal_eval(conf['chats_for_transfer'])
 		conf['key_word'] = ast.literal_eval(conf['key_word'])
 		conf['keyStop_word'] = ast.literal_eval(conf['keyStop_word'])
-		status = hbold("🟢 Бот активно работает") if user_info['active'] else hbold("⏸ Бот приостановлен")
+		
+		if conf['run_time']:
+			now = datetime.now()
+			time_difference = now - conf['run_time']
+			hours_difference = time_difference.total_seconds() / 3600
+		
+		total_intercepted = await db.get_stats_count(table = "unique_users", separator = "=", settings_id = conf['id'])
+		
 		text = '\n'.join([
-			status,
+			hbold("🟢 INTERCEPTOR RUNNING"),
 			"",
-			"📤 Какие группы отслеживаются:",
+			"📤 Откуда будут перехватываться:",
 			"\n".join(hcode(str(group)) for group in conf['tracked_groups']),
-			"📥 Куда перехвачивает:",
+			"📥 Куда будут приходить:",
 			" ".join(hcode(str(chatID)) for chatID in conf['chats_for_transfer']),
 			"",
 			"🔎 Список ключевых слов - " + hcode("".join(str(len(conf['key_word'])))) + hitalic(' слов'),
 			"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(conf['keyStop_word'])))) + hitalic(' слов'),
 			"",
-			"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
+			"📊 CRM-система: ➕ Подключена " + hlink("URL", conf['crm_url']) if conf['crm_url'] else "📊 CRM-система: ✖️ Не подключена",
 			"",
+			"🤖 Сессия Клиента - " + hcode(str(conf['session_file'])),
 			"🆔 API_ID: " + hcode(str(conf['api_id'])),
 			"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
+			"",
+			"🕙 Время работы: " + str(round(hours_difference, 1)) + " час(а)" if user_info['active'] else None,
+			"🥷 Всего перехвачено: " + hbold(format_number(total_intercepted['count'])),
 				])
 		if user_info['active']:
-			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏸ Приостановить работу'],['🎛 Настройки']], user_info['is_admin']))
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏸ Приостановить работу'],['🎛 Настройки']], user_info['is_admin']), disable_web_page_preview = True)
 		else:
-			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'],['🎛 Настройки']], user_info['is_admin']))
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['🟢 Запустить перехват'],['🎛 Настройки']], user_info['is_admin']), disable_web_page_preview = True)
 
 async def settings_bot(message: types.Message, db, dp, user_info, settings, state: FSMContext):
 	conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
@@ -178,7 +221,7 @@ async def settings_bot(message: types.Message, db, dp, user_info, settings, stat
 		])
 
 	text_two = '\n'.join([
-		hbold("Изменять настройки перехватчика можно в реальном времени, когда бот в процессе работы"),
+		hbold("🎛 Изменять настройки перехватчика можно в реальном времени, когда бот в процессе работы"),
 		"",
 		hitalic("❕ Будьте внимательны, проверяйте вводимую информацию, для нормальной работы скрипта"),
 		"",
@@ -186,7 +229,7 @@ async def settings_bot(message: types.Message, db, dp, user_info, settings, stat
 		])
 
 	await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
-	await message.bot.send_message(chat_id = user_info['chat_id'], text = text_two, reply_markup = keyboard_gen([['▪️ Откуда перехватывать','▪️ Куда будут приходить'],['▪️ Список ключевых слов','▪️ Список ключ-стоп-слов']], user_info['is_admin']))
+	await message.bot.send_message(chat_id = user_info['chat_id'], text = text_two, reply_markup = keyboard_gen([['↗️ Откуда перехватывать','↙️ Куда будут приходить'],['🔑 Список ключевых слов','🛑 Список ключ-стоп-слов']], user_info['is_admin']))
 
 async def edit_tracked_groups(message: types.Message, db, dp, user_info, settings, state: FSMContext):
 	text = '\n'.join([
@@ -383,12 +426,16 @@ async def run_intecepter_bot(message: types.Message, db, dp, user_info, settings
 		dp['data'] = client
 
 		text = '\n'.join([
-			hbold("✅ Бот в реальном времени отслеживает чаты"),
+			hbold("✅ Активирован"),
+			"",
+			"🥷 Слежка за чатами в реальном времени",
 			])
 
 		await db.update_running_param(chat_id = user_info['chat_id'], active = 1)
+		await db.run_time_recording(id = bot_conf['id'], time = datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏸ Приостановить работу'],['🎛 Настройки']], user_info['is_admin']))
-		await register_user_telethon(client, db, message, user_info)  # RUN BOT
+		await register_user_telethon(client, db, message, user_info)
 	except Exception as error:
 		await message.answer(hbold("⚠️ Error: ") + hcode(str(error)))
 
@@ -403,8 +450,8 @@ async def register_user_telethon(client, db, message, user_info):
 				chat_info = await client.get_entity(item.split('https://t.me/')[1])
 				chat_info = await client.get_entity(chat_info)
 				array.append("-100" + str(chat_info.id))
-			except Exception as e:
-				print(f"Ошибка: {e}")
+			except Exception as error:
+				logging.exception(f'ERROR (get_entity) tracked_groups:\n {error}')
 		await handle_new_message(client, event, db, array, message, user_info)
 
 async def handle_new_message(client, event, db, tracked_groups, message, user_info):
@@ -418,9 +465,9 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 				if consilience:
 					if event.message.from_id == None:
 						sender_info = await client.get_entity(event.peer_id.channel_id)
-						if sender_info.scam == False:
+						if sender_info.scam == False and event.message.post == True:
 							text_message = event.message.message.split()
-							text_message = ' '.join(text_message[:15])
+							short_text = ' '.join(text_message[:15])
 							
 							keyboard = types.InlineKeyboardMarkup()
 							keyboard.add(types.InlineKeyboardButton("Message in the channel", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
@@ -429,7 +476,7 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 								hbold("📮 Сhannel: ") + str(dialog.name),
 								hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
 								"",
-								hbold("📝 Message: ") + hitalic(text_message + "..."),
+								hbold("📝 Message: ") + hitalic(short_text + "..."),
 								hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
 								])
 
@@ -443,7 +490,7 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 								await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
 
 								text_message = event.message.message.split()
-								text_message = ' '.join(text_message[:15])
+								short_text = ' '.join(text_message[:15])
 								
 								keyboard = types.InlineKeyboardMarkup()
 								keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
@@ -457,7 +504,7 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 									hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
 									hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
 									"",
-									hbold("📝 Message: ") + hitalic(text_message + "..."),
+									hbold("📝 Message: ") + hitalic(short_text + "..."),
 									hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
 									])
 
@@ -465,12 +512,39 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 								for chat_id in chats_for_transfer:
 									await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
 
+								if bot_conf['crm_url']:
+									url_message = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)
+
+									contact = await create_new_contact(first_name = sender_info.first_name, last_name = sender_info.last_name, phone = str(sender_info.phone))
+
+									text = '\n'.join([
+										"<b>● Chat Name: </b>'" + str(dialog.name) + "'",
+										"<b>● Chat ID: </b>" + str(dialog.id),
+										"",
+										"<b>● Name: </b>" + str(sender_info.first_name),
+										"<b>● Last Name: </b>" + str(sender_info.last_name),
+										"<b>● User ID: </b>" + str(sender_info.id),
+										"<b>● Username: </b>" + f"<a href=t.me/{sender_info.username}>@{sender_info.username}</a>",
+										"<b>● Phone: </b>" + str(sender_info.phone),
+										"",
+										"<b>● Message: </b>" + str("\n<i>'" + event.message.message + "'</i>"),
+										"<b>● Keys: </b><i>" + " ".join((item) for item in consilience) + "</i>",
+										"",
+										f"<a href={url_message}>{url_message}</a>",
+										])
+									
+									data = await create_crm_param(source = str(dialog.name), fullname = contact['fullname'], comments = text, contact_id = contact['id'])
+	
+									requests.post(bot_conf['crm_url'], json = data, headers = {"Content-Type": "application/json"})
+							
 async def stop_intecepter_bot(message: types.Message, db, dp, user_info, settings, telegram):
 	if dp['data']:
 		client = dp['data']
 		await client.disconnect()
 
+	bot_conf = await db.get_settings_byUser(chat_id = user_info['chat_id'])
 	await db.update_running_param(chat_id = user_info['chat_id'], active = 0)
+	await db.run_time_recording(id = bot_conf['id'], time = None)
 	text = '\n'.join([
 		("⏸ Работа перехватчика приостановлена"),
 		])
@@ -552,7 +626,7 @@ async def get_group_links(message: types.Message, db, dp, user_info, telegram, s
 				f"{url_list}",
 				])
 
-			msg = await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 			
 			text = '\n'.join([
 				hbold("📥 Пришлите CHAT_ID или CHANNEL_ID, куда будут приходить перехваченные сообщения."),
@@ -565,10 +639,8 @@ async def get_group_links(message: types.Message, db, dp, user_info, telegram, s
 				hitalic("❔ Можете добавить сразу несколько в одном сообщении через пробел"),
 				hitalic("❔ Необходимы только права публикации сообщений в канале"),
 				])
-			await asyncio.sleep(2)
-			msg = await message.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = msg.message_id, text = "📤")
-			await asyncio.sleep(2.2)
-			await message.bot.edit_message_text(chat_id = user_info['chat_id'], message_id = msg.message_id, text = text)
+			await asyncio.sleep(1)
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 
 			async with state.proxy() as array:
 				array['groups'] = message.text.split()
@@ -669,11 +741,8 @@ async def get_key_word(message: types.Message, db, dp, user_info, telegram, sett
 			array['key_word'] = []
 			for word in file_content.split():
 				array['key_word'].append(word.lower())
-			print(array['key_word'])
-		try:
-			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
-		except:
-			pass
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
+
 		os.remove(file_path_on_server)
 		text = '\n'.join([
 			hbold("📝 Отправьте одним сообщением список ключевых STOP-слов"),
@@ -682,7 +751,6 @@ async def get_key_word(message: types.Message, db, dp, user_info, telegram, sett
 			"✉️ Сообщения с наличием таких слов, будут игнорированы",
 			])
 		
-		await asyncio.sleep(1)
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 		await StatesActivate.get_stopWord.set()
 	else:
@@ -706,9 +774,8 @@ async def get_stop_word(message: types.Message, db, dp, user_info, telegram, set
 		text = '\n'.join([
 			hbold("🆔 Отправьте API_ID клиента телеграм")
 			])
-		await asyncio.sleep(1)
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
-		await StatesActivate.get_apiID.set()
+		await StatesActivate.get_crm_link.set()
 	elif message.document.mime_type == 'text/plain':
 		file_id = message.document.file_id
 		file_info = await message.bot.get_file(file_id)
@@ -733,19 +800,39 @@ async def get_stop_word(message: types.Message, db, dp, user_info, telegram, set
 			array['stop_word'] = []
 			for word in file_content.split():
 				array['stop_word'].append(word.lower())
-		try:
-			await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
-		except:
-			pass
-		os.remove(file_path_on_server)
-		text = '\n'.join([
-			hbold("🆔 Отправьте API_ID клиента телеграм")
-			])
-		await asyncio.sleep(1)
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
-		await StatesActivate.get_apiID.set()
+		os.remove(file_path_on_server)
+
+		text = '\n'.join([
+			hbold("📊 Управление взаимоотношениями с клиентами (CRM)"),
+			"",
+			"🔗 Отправьте ссылку на вебхук, для работы с данными вашего Битрикс24",
+			])
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏩ Пропустить']]))
+		await StatesActivate.get_crm_link.set()
 	else:
 		await message.reply(text = hbold("💢 Неверный формат данных.\n📝 Поддерживается текст или файл формата .txt\n") + hitalic("☝️ (Следуйте вышеуказанным инструкциям)"))
+
+async def get_crm_link(message: types.Message, db, dp, user_info, telegram, settings, state: FSMContext):
+	if message.text == "⏩ Пропустить":
+		async with state.proxy() as array:
+			array['crm_url'] = ""
+		text = '\n'.join([
+			hbold("🆔 Отправьте API_ID клиента телеграм"),
+			])
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = types.ReplyKeyboardRemove())
+		await StatesActivate.get_apiID.set()
+		return
+	if message.text:
+		async with state.proxy() as array:
+			array['crm_url'] = message.text
+		text = '\n'.join([
+			hbold("🆔 Отправьте API_ID клиента телеграм"),
+			])
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = types.ReplyKeyboardRemove())
+		await StatesActivate.get_apiID.set()
+	else:
+		await message.reply(text = hbold("💢 Неверный формат данных.\n📝 Поддерживается текст\n") + hitalic("☝️ (Следуйте вышеуказанным инструкциям)"))
 
 async def get_apiID(message: types.Message, db, dp, user_info, telegram, settings, state: FSMContext):
 	if message.text:
@@ -798,18 +885,18 @@ async def get_session(message: types.Message, db, dp, user_info, telegram, setti
 				"📤 Откуда будут перехватываться:",
 				"\n".join(hcode(str(group)) for group in array['groups']),
 				"📥 Куда будут приходить:",
-				" ".join(hcode(str(chatID)) for chatID in array['chat_id']),
-				" ".join(hitalic(str(item)) for item in array['chat_title']),
+				" ".join(str(item) for item in array['chat_title']),
 				"",
 				"🔎 Список ключевых слов - " + hcode("".join(str(len(array['key_word'])))) + hitalic(' слов'),
 				"🛑 Список ключ.стоп-слов - " + hcode("".join(str(len(array['stop_word'])))) + hitalic(' слов'),
 				"",
-				"🤖 Сессия Клиента - " + hcode(str(message.document.file_name)),
+				"📊 CRM-система: ➕ Подключена " + hlink("URL", array['crm_url']) if array['crm_url'] else "📊 CRM-система: ✖️ Не подключена",
 				"",
+				"🤖 Сессия аккаунта - " + hcode(str(message.document.file_name)),
 				"🆔 API_ID: " + hcode(str(array['api_id'])),
 				"#️⃣  API_HASH: " + hcode(str(array['api_hash'])),
 				])
-			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['✅ Завершить настройку']]))
+			await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['✅ Завершить настройку']]), disable_web_page_preview = True)
 			await StatesActivate.save_settings.set()
 
 	else:
@@ -823,7 +910,7 @@ async def save_settings(message: types.Message, db, dp, user_info, telegram, set
 		if message.text == "✅ Завершить настройку":
 			async with state.proxy() as array:
 				try:
-					await db.add_new_settings(chat_id = user_info['chat_id'], token = array['token'], tracked_groups = array['groups'], chats_for_transfer = array['chat_id'], key_word = array['key_word'], keyStop_word = array['stop_word'], session_file = array['session_file'], api_id = array['api_id'], api_hash = array['api_hash'])
+					await db.add_new_settings(chat_id = user_info['chat_id'], token = array['token'], tracked_groups = array['groups'], chats_for_transfer = array['chat_id'], key_word = array['key_word'], keyStop_word = array['stop_word'], crm_url = array['crm_url'], session_file = array['session_file'], api_id = array['api_id'], api_hash = array['api_hash'])
 					tokenID = await db.get_idToken(token = array['token'])
 					await db.update_user_tokenID(token_id = tokenID['id'], chat_id = user_info['chat_id'])
 				except Exception as error:
@@ -855,19 +942,20 @@ def register_user(dp: Dispatcher):
 	dp.register_message_handler(get_key_word, IsPrivate(), state = StatesActivate.get_keyword, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(get_stop_word, IsPrivate(), state = StatesActivate.get_stopWord, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(get_apiID, IsPrivate(), state = StatesActivate.get_apiID, content_types = types.ContentTypes.ANY)
+	dp.register_message_handler(get_crm_link, IsPrivate(), state = StatesActivate.get_crm_link, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(get_api_hash, IsPrivate(), state = StatesActivate.get_api_hash, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(get_session, IsPrivate(), state = StatesActivate.get_session, content_types = types.ContentTypes.ANY)
 	dp.register_message_handler(save_settings, IsPrivate(), state = StatesActivate.save_settings, content_types = types.ContentTypes.ANY)
 
 	# edit settings
 	dp.register_message_handler(settings_bot, IsPrivate(), state = "*", text = "🎛 Настройки")
-	dp.register_message_handler(edit_tracked_groups, IsPrivate(), state = "*", text = "▪️ Откуда перехватывать")
+	dp.register_message_handler(edit_tracked_groups, IsPrivate(), state = "*", text = "↗️ Откуда перехватывать")
 	dp.register_message_handler(update_tracked_groups, IsPrivate(), state = StatesEditValue.get_trackedGroup, content_types = types.ContentTypes.ANY)
-	dp.register_message_handler(edit_forTransfer, IsPrivate(), state = "*", text = "▪️ Куда будут приходить")
+	dp.register_message_handler(edit_forTransfer, IsPrivate(), state = "*", text = "↙️ Куда будут приходить")
 	dp.register_message_handler(update_forTransfer, IsPrivate(), state = StatesEditValue.get_forTransfer, content_types = types.ContentTypes.ANY)
-	dp.register_message_handler(edit_keyWord, IsPrivate(), state = "*", text = "▪️ Список ключевых слов")
+	dp.register_message_handler(edit_keyWord, IsPrivate(), state = "*", text = "🔑 Список ключевых слов")
 	dp.register_message_handler(update_keyWord, IsPrivate(), state = StatesEditValue.get_keyWord, content_types = types.ContentTypes.ANY)
-	dp.register_message_handler(edit_key_StopWord, IsPrivate(), state = "*", text = "▪️ Список ключ-стоп-слов")
+	dp.register_message_handler(edit_key_StopWord, IsPrivate(), state = "*", text = "🛑 Список ключ-стоп-слов")
 	dp.register_message_handler(update_key_StopWord, IsPrivate(), state = StatesEditValue.get_keyStopWord, content_types = types.ContentTypes.ANY)
 	# handlers admin
 	dp.register_message_handler(command_start, IsPrivate(), text = "◀️ Главное меню")

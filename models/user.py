@@ -84,9 +84,9 @@ class User:
 
 
 	# TABLE 'bot_settings' INSERT, SELECT, DELETE
-	async def add_new_settings(self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash):
-		sql = "INSERT INTO bot_settings (chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-		return await self.execute(sql, (chat_id, token, str(tracked_groups), str(chats_for_transfer), str(key_word), str(keyStop_word), session_file, api_id, api_hash), execute = True)
+	async def add_new_settings(self, chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, crm_url, session_file, api_id, api_hash):
+		sql = "INSERT INTO bot_settings (chat_id, token, tracked_groups, chats_for_transfer, key_word, keyStop_word, crm_url, session_file, api_id, api_hash) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+		return await self.execute(sql, (chat_id, token, str(tracked_groups), str(chats_for_transfer), str(key_word), str(keyStop_word), str(crm_url), session_file, api_id, api_hash), execute = True)
 
 	async def delete_settings(self, token):
 		sql = "DELETE FROM bot_settings WHERE token = %s"
@@ -111,6 +111,10 @@ class User:
 	async def update_keyStopWord(self, chat_id, keyStop_word):
 		sql = "UPDATE bot_settings SET keyStop_word = %s WHERE chat_id = %s"
 		return await self.execute(sql, (str(keyStop_word), chat_id), execute = True)
+
+	async def run_time_recording(self, id, time):
+		sql = "UPDATE bot_settings SET run_time = %s WHERE id = %s"
+		return await self.execute(sql, (time, id), execute = True)
 
 
 	# TABLE 'unique_users' INSERT, SELECT, DELETE

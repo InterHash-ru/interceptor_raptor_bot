@@ -22,7 +22,7 @@ SETTINGS = {
 	"rights"			: {1: "Менеджер", 2: "Администратор"},
 	"broadcast_timeout"	: 0.9,
 	"broadcast_threads"	: 25,
-	"broadcast_channel"	: -1001645639044,
+	"broadcast_channel"	: None,
 }
 
 # dev t.me/cayse

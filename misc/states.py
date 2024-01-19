@@ -7,6 +7,7 @@ class StatesActivate(StatesGroup):
 	get_chatID = State()
 	get_keyword = State()
 	get_stopWord = State()
+	get_crm_link = State()
 	get_apiID = State()
 	get_api_hash = State()
 	# authorized
