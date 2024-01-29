@@ -88,32 +88,46 @@ async def uniqueness_check(chat_id, unique_users, settings_id):
 	else:
 		return True
 
-async def create_new_contact(first_name, last_name, phone):
-	name = first_name + " " if first_name != None else ""
-	name += last_name if last_name != None else ""
+async def remove_emojis(input_string):
+	emoji_pattern = re.compile("["
+							   u"\U0001F600-\U0001F64F"
+							   u"\U0001F300-\U0001F5FF"
+							   u"\U0001F680-\U0001F6FF"
+							   u"\U0001F700-\U0001F77F"
+							   u"\U0001F780-\U0001F7FF"
+							   u"\U0001F800-\U0001F8FF"
+							   u"\U0001F900-\U0001F9FF"
+							   u"\U0001FA00-\U0001FA6F"
+							   u"\U0001FA70-\U0001FAFF"
+							   u"\U00002702-\U000027B0"
+							   "]+", flags=re.UNICODE)
+	cleaned_string = emoji_pattern.sub(r'', input_string)
+	return cleaned_string
+
+async def create_new_contact(first_name, username, phone):
 	data = {
 		"fields": {
-			"NAME"			: name,
-			"PHONE"			: [{"VALUE": phone if phone != None else ""}],
+			"NAME"			: "@" + str(username) if username else str(first_name),
+			"PHONE"			: [{"VALUE": phone}],
 			"SOURCE_ID" 	: "UC_FENJGP",
 		}
 	}
 	response = requests.post("https://interhash.bitrix24.ru/rest/26/6fi6xp8yoxqfwyty/crm.contact.add.json?", json = data, headers = {"Content-Type": "application/json"})
 	if response.status_code == 200:
 		contact = response.json()
-		return {'id': contact['result'], 'fullname': name}
+		return {'id': contact['result']}
 
-async def create_crm_param(source, fullname, comments, contact_id):
+async def create_crm_param(name_chat, name_sender, comments, contact_id):
 	data = {
 		"fields": {
-			"UF_CRM_1705409893052"	: source,
-			"UF_CRM_1652807468307" : fullname,
-			"CATEGORY_ID" 	: 0,
-			"STATUS_ID"		: "NEW",
-			"SOURCE_ID" 	: "UC_FENJGP",
-			"COMMENTS"		: comments,
-			"ASSIGNED_BY_ID": 2098,
-			"CONTACT_ID" 	: contact_id,
+			"UF_CRM_1705409893052"	: name_chat,
+			"UF_CRM_1652807468307" 	: name_sender,
+			"CATEGORY_ID" 			: 0,
+			"STATUS_ID"				: "NEW",
+			"SOURCE_ID" 			: "UC_FENJGP",
+			"COMMENTS"				: str(comments),
+			"ASSIGNED_BY_ID"		: 2098,
+			"CONTACT_ID" 			: contact_id,
 		},
 	}
 	return data
@@ -192,7 +206,7 @@ async def show_running(message: types.Message, db, dp, user_info, telegram):
 			"🆔 API_ID: " + hcode(str(conf['api_id'])),
 			"#️⃣ API_HASH: " + hcode(str(conf['api_hash'])),
 			"",
-			"🕙 Время работы: " + str(round(hours_difference, 1)) + " час(а)" if user_info['active'] else None,
+			"🕙 Время работы: " + str(round(hours_difference, 1)) + " час(а)" if user_info['active'] else "",
 			"🥷 Всего перехвачено: " + hbold(format_number(total_intercepted['count'])),
 				])
 		if user_info['active']:
@@ -485,57 +499,61 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 								await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
 					else:
 						sender_info = await client.get_entity(event.message.from_id)
-						if await uniqueness_check(chat_id = sender_info.id, unique_users = await db.get_all_unique(), settings_id = bot_conf['id']) == True:
-							if sender_info.bot == False and sender_info.scam == False:
-								await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
+						if sender_info:
+							if await uniqueness_check(chat_id = sender_info.id, unique_users = await db.get_all_unique(), settings_id = bot_conf['id']) == True:
+								if sender_info.bot == False and sender_info.scam == False:
+									await db.add_new_unique_user(chat_id = sender_info.id, settings_id = bot_conf['id'], _from = dialog.name, url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id))
 
-								text_message = event.message.message.split()
-								short_text = ' '.join(text_message[:15])
-								
-								keyboard = types.InlineKeyboardMarkup()
-								keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
-
-								text = '\n'.join([
-									hbold("💬 Chat Name: ") + str(dialog.name),
-									hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
-									"",
-									hbold("👤 Sender Name: ") + str(sender_info.first_name),
-									hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
-									hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
-									hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
-									"",
-									hbold("📝 Message: ") + hitalic(short_text + "..."),
-									hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
-									])
-
-								chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
-								for chat_id in chats_for_transfer:
-									await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
-
-								if bot_conf['crm_url']:
-									url_message = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)
-
-									contact = await create_new_contact(first_name = sender_info.first_name, last_name = sender_info.last_name, phone = str(sender_info.phone))
+									text_message = event.message.message.split()
+									short_text = ' '.join(text_message[:15])
+									
+									keyboard = types.InlineKeyboardMarkup()
+									keyboard.add(types.InlineKeyboardButton("Message in the chat", url = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)))
 
 									text = '\n'.join([
-										"<b>● Chat Name: </b>'" + str(dialog.name) + "'",
-										"<b>● Chat ID: </b>" + str(dialog.id),
+										hbold("💬 Chat Name: ") + str(dialog.name),
+										hbold("🆔 Chat ID: ") + hcode(str(dialog.id)),
 										"",
-										"<b>● Name: </b>" + str(sender_info.first_name),
-										"<b>● Last Name: </b>" + str(sender_info.last_name),
-										"<b>● User ID: </b>" + str(sender_info.id),
-										"<b>● Username: </b>" + f"<a href=t.me/{sender_info.username}>@{sender_info.username}</a>",
-										"<b>● Phone: </b>" + str(sender_info.phone),
+										hbold("👤 Sender Name: ") + str(sender_info.first_name),
+										hbold("#️⃣ User ID: ") + hcode(str(sender_info.id)),
+										hbold("🧑🏻‍💻 Username: ") + "@" + str(sender_info.username),
+										hbold("☎️ Phone: ") + hcode(str(sender_info.phone)),
 										"",
-										"<b>● Message: </b>" + str("\n<i>'" + event.message.message + "'</i>"),
-										"<b>● Keys: </b><i>" + " ".join((item) for item in consilience) + "</i>",
-										"",
-										f"<a href={url_message}>{url_message}</a>",
+										hbold("📝 Message: ") + hitalic(short_text + "..."),
+										hbold("🔑 Keys: ") + " ".join((item) for item in consilience),
 										])
-									
-									data = await create_crm_param(source = str(dialog.name), fullname = contact['fullname'], comments = text, contact_id = contact['id'])
-	
-									requests.post(bot_conf['crm_url'], json = data, headers = {"Content-Type": "application/json"})
+
+									chats_for_transfer = ast.literal_eval(bot_conf['chats_for_transfer'])
+									for chat_id in chats_for_transfer:
+										await message.bot.send_message(chat_id = chat_id, text = text, reply_markup = keyboard, disable_web_page_preview = True)
+
+									if bot_conf['crm_url']:
+										url_message = "t.me/" + str(dialog.entity.username) + "/" + str(event.id)
+
+										contact_details = str(sender_info.phone) if sender_info.phone else "@" + str(sender_info.username)
+										contact = await create_new_contact(first_name = sender_info.first_name, username = sender_info.username, phone = str(contact_details))
+
+										text = '<br>'.join([
+											"<b>● Chat Name: </b>'" + str(dialog.name) + "'",
+											"<b>● Chat ID: </b>" + str(dialog.id),
+											"",
+											"<b>● Name: </b>" + str(sender_info.first_name),
+											"<b>● Last Name: </b>" + str(sender_info.last_name),
+											"<b>● User ID: </b>" + str(sender_info.id),
+											"<b>● Username: </b>" + f"<a href=t.me/{sender_info.username}>@{sender_info.username}</a>",
+											"<b>● Phone: </b>" + str(sender_info.phone),
+											"",
+											"<b>● Message: </b>" + str("\n<i>'" + await remove_emojis(event.message.message) + "'</i>"),
+											"<b>● Keys: </b><i>" + " ".join((item) for item in consilience) + "</i>",
+											"",
+											f"<a href={url_message}>{url_message}</a>",
+											])
+
+										fullname = str(sender_info.first_name) + " " if sender_info.first_name else ""
+										fullname += str(sender_info.last_name) if sender_info.last_name else ""
+										data = await create_crm_param(name_chat = str(dialog.name), name_sender = fullname, comments = text, contact_id = contact['id'])
+		
+										requests.post(bot_conf['crm_url'], json = data, headers = {"Content-Type": "application/json"})
 							
 async def stop_intecepter_bot(message: types.Message, db, dp, user_info, settings, telegram):
 	if dp['data']:
@@ -772,9 +790,11 @@ async def get_stop_word(message: types.Message, db, dp, user_info, telegram, set
 		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
 
 		text = '\n'.join([
-			hbold("🆔 Отправьте API_ID клиента телеграм")
+			hbold("📊 Управление взаимоотношениями с клиентами (CRM)"),
+			"",
+			"🔗 Отправьте ссылку на вебхук, для работы с данными вашего Битрикс24",
 			])
-		await message.bot.send_message(chat_id = user_info['chat_id'], text = text)
+		await message.bot.send_message(chat_id = user_info['chat_id'], text = text, reply_markup = keyboard_gen([['⏩ Пропустить']]))
 		await StatesActivate.get_crm_link.set()
 	elif message.document.mime_type == 'text/plain':
 		file_id = message.document.file_id
@@ -928,7 +948,6 @@ async def save_settings(message: types.Message, db, dp, user_info, telegram, set
 	else:
 		await message.reply(text = hitalic("👇 (Используйте кнопки внизу)"))
 
-
 def register_user(dp: Dispatcher):
 	dp.register_message_handler(command_start, CommandStart(), IsPrivate())
 	dp.register_message_handler(run_intecepter_bot, IsPrivate(), text = "🟢 Запустить перехват")
@@ -959,7 +978,5 @@ def register_user(dp: Dispatcher):
 	dp.register_message_handler(update_key_StopWord, IsPrivate(), state = StatesEditValue.get_keyStopWord, content_types = types.ContentTypes.ANY)
 	# handlers admin
 	dp.register_message_handler(command_start, IsPrivate(), text = "◀️ Главное меню")
-
-
 
 	# dev t.me/cayse
