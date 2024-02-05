@@ -125,7 +125,7 @@ async def create_crm_param(name_chat, name_sender, comments, contact_id):
 			"CATEGORY_ID" 			: 0,
 			"STATUS_ID"				: "NEW",
 			"SOURCE_ID" 			: "UC_FENJGP",
-			"COMMENTS"				: str(comments),
+			"COMMENTS"				: comments,
 			"ASSIGNED_BY_ID"		: 2098,
 			"CONTACT_ID" 			: contact_id,
 		},
@@ -534,16 +534,16 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 										contact = await create_new_contact(first_name = sender_info.first_name, username = sender_info.username, phone = str(contact_details))
 
 										text = '<br>'.join([
-											"<b>● Chat Name: </b>" + await remove_emojis(dialog.name),
+											"<b>● Chat Name: </b>" + str(await remove_emojis(dialog.name)),
 											"<b>● Chat ID: </b>" + str(dialog.id),
 											"",
-											"<b>● Name: </b>" + await remove_emojis(sender_info.first_name),
-											"<b>● Last Name: </b>" + await remove_emojis(sender_info.last_name),
+											"<b>● Name: </b>" + str(sender_info.first_name),
+											"<b>● Last Name: </b>" + str(sender_info.last_name),
 											"<b>● User ID: </b>" + str(sender_info.id),
 											"<b>● Username: </b>" + f"<a href=t.me/{sender_info.username}>@{sender_info.username}</a>",
 											"<b>● Phone: </b>" + str(sender_info.phone),
 											"",
-											"<b>● Message: </b>" + str("\n<i>'" + await remove_emojis(event.message.message) + "'</i>"),
+											"<b>● Message: </b>" + str(await remove_emojis(event.message.message)),
 											"<b>● Keys: </b><i>" + " ".join((item) for item in consilience) + "</i>",
 											"",
 											f"<a href={url_message}>{url_message}</a>",
@@ -552,9 +552,11 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 										fullname = str(sender_info.first_name) + " " if sender_info.first_name else ""
 										fullname += str(sender_info.last_name) if sender_info.last_name else ""
 										data = await create_crm_param(name_chat = str(dialog.name), name_sender = fullname, comments = text, contact_id = contact['id'])
-		
-										requests.post(bot_conf['crm_url'], json = data, headers = {"Content-Type": "application/json"})
-							
+										try:
+											requests.post(bot_conf['crm_url'], json = data, headers = {"Content-Type": "application/json"})
+										except Exception as error:
+											await message.bot.send_message(chat_id = '435968876', text = str(error))
+
 async def stop_intecepter_bot(message: types.Message, db, dp, user_info, settings, telegram):
 	if dp['data']:
 		client = dp['data']
