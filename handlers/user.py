@@ -534,11 +534,11 @@ async def handle_new_message(client, event, db, tracked_groups, message, user_in
 										contact = await create_new_contact(first_name = sender_info.first_name, username = sender_info.username, phone = str(contact_details))
 
 										text = '<br>'.join([
-											"<b>● Chat Name: </b>" + remove_emojis(dialog.name),
+											"<b>● Chat Name: </b>" + await remove_emojis(dialog.name),
 											"<b>● Chat ID: </b>" + str(dialog.id),
 											"",
-											"<b>● Name: </b>" + remove_emojis(sender_info.first_name),
-											"<b>● Last Name: </b>" + remove_emojis(sender_info.last_name),
+											"<b>● Name: </b>" + await remove_emojis(sender_info.first_name),
+											"<b>● Last Name: </b>" + await remove_emojis(sender_info.last_name),
 											"<b>● User ID: </b>" + str(sender_info.id),
 											"<b>● Username: </b>" + f"<a href=t.me/{sender_info.username}>@{sender_info.username}</a>",
 											"<b>● Phone: </b>" + str(sender_info.phone),
