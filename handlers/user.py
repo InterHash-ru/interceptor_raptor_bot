@@ -112,7 +112,7 @@ async def create_new_contact(first_name, username, phone):
 			"SOURCE_ID" 	: "UC_FENJGP",
 		}
 	}
-	response = requests.post("https://interhash.bitrix24.ru/rest/26/6fi6xp8yoxqfwyty/crm.contact.add.json?", json = data, headers = {"Content-Type": "application/json"})
+	response = requests.post("https://interhash.bitrix24.ru/rest/26/2fbqa7d1gkru4wft/crm.contact.add.json?", json = data, headers = {"Content-Type": "application/json"})
 	if response.status_code == 200:
 		contact = response.json()
 		return {'id': contact['result']}
