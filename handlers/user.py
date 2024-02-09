@@ -124,7 +124,7 @@ async def create_crm_param(name_chat, name_sender, comments, contact_id):
 			"UF_CRM_1652807468307" 	: name_sender,
 			"CATEGORY_ID" 			: 0,
 			"STATUS_ID"				: "NEW",
-			"SOURCE_ID" 			: "UC_FENJGP",
+			"SOURCE_ID" 			: "UC_XT6TA6",
 			"COMMENTS"				: comments,
 			"ASSIGNED_BY_ID"		: 2098,
 			"CONTACT_ID" 			: contact_id,
